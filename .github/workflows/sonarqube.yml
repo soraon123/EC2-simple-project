@@ -3,7 +3,7 @@ name: SonarQube Analysis
 on:
   push:
     branches:
-      - mastergit
+      - master
 jobs:
   sonar:
     runs-on: ubuntu-latest
