@@ -1,0 +1,67 @@
+name: Batch API CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: batch-api
+  CONTAINER_NAME: batch-api-container
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    # strategy:
+    #   matrix:
+    #     os: [ubuntu-latest, macos-latest, windows-latest]
+    #     node-version: [18, 22, 24]
+
+    steps:
+      # - name: Install dependencies via Nexus
+      #   run: |
+      #     npm config set registry http://13.202.80.56:8081/repository/npm-group/
+      #     npm install
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            -t ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # - name: Deploy to EC2
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.EC2_HOST }}
+      #     username: ${{ secrets.EC2_USER }}
+      #     key: ${{ secrets.EC2_SSH_KEY }}
+      #     script: |
+      #       docker stop ${{ env.CONTAINER_NAME }} || true
+      #       docker rm ${{ env.CONTAINER_NAME }} || true
+      #       docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+      #       docker run -d \
+      #         --name ${{ env.CONTAINER_NAME }} \
+      #         -p 3000:3000 \
+      #         --restart unless-stopped \
+      #         ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
